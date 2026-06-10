@@ -1,0 +1,5 @@
+gradio>=4.44
+annoy>=1.17
+numpy>=1.26
+pandas>=2.0
+pillow>=10.0
