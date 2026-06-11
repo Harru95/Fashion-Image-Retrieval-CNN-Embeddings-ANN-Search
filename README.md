@@ -1,140 +1,113 @@
-# 🧥 AI Fashion Recommendation System  
-**Image Similarity • Text Search • Upload Search • Vibe Matching**  
-Built with **FastAI, ResNet18, Annoy, PIL, Gradio**
+# Fashion Visual Search & Vibe Matcher
+
+A production-ready fashion image retrieval system built with a fine-tuned ResNet18, Annoy ANN indexing, and a four-mode Gradio interface — deployed as a live Hugging Face Space.
+
+**[Live Demo →](https://huggingface.co/spaces/Harsh9590/fashion-visual-search)**
 
 ---
 
-## 🚀 Overview
+## What it does
 
-This project is an **AI-powered Fashion Recommendation System** that finds visually similar fashion products using deep learning and vector similarity search.
+Given a fashion catalogue of ~5,000 items, the system retrieves visually similar products in real time using deep CNN embeddings and approximate nearest-neighbour search. Four independent search modes are supported:
 
-The system supports **four powerful recommendation modes**:
-
-1. **Search by Index** — Select any dataset image index to view similar items  
-2. **Search by Text** — Search via subcategory names (e.g., "shoes", "bags")  
-3. **Search by Image Upload** — Upload your own image and get similar recommendations  
-4. **Vibe Match** — Enter multiple indices or keywords and get items that match the combined “vibe”
-
-This project uses:
-
-- **FastAI + ResNet18** for feature extraction  
-- **Annoy (Approximate Nearest Neighbor)** for fast vector search  
-- **PIL** for image handling  
-- **Gradio** for a clean interactive UI  
+| Mode | Description |
+|---|---|
+| **Similar by Index** | Enter any item ID to find visually similar pieces (category-aware filtering) |
+| **Vibe Match** | Enter multiple item IDs (space-separated) to blend their embeddings into a single style query |
+| **Text / Category Search** | Search by subcategory keyword (e.g. `dress`, `shoes`, `watch`) |
+| **Image Upload** | Upload any fashion photo to find matching items in the catalogue |
 
 ---
 
-## 📦 Features
+## Architecture
 
-### ✅ **1. Image-Based Similarity Search**
-Extract embeddings from the penultimate layer of ResNet18 and retrieve similar images via Annoy.
+```
+Fine-tuned ResNet18 (FastAI)
+        │
+        ▼
+512-dim penultimate-layer embeddings
+        │
+        ▼
+Annoy index (Euclidean distance)  ←──  query vector
+        │
+        ▼
+Top-k nearest neighbours → Gradio gallery
+```
 
-### ✅ **2. Text-Based Search**
-Enter text such as `"shirts"`, `"jeans"`, `"watches"` to retrieve related items.
-
-### ✅ **3. Image Upload Search**
-Upload any image → embedding is computed → similar fashion items are retrieved.
-
-### ✅ **4. Vibe Matcher**
-A unique mode where users can input:
-
-- **Indices:** `10, 25, 87`  
-- **Keywords:** `shoes, blue shirt, backpack`
-
-The system averages the embeddings → finds items that represent the *combined vibe*.
-
----
-
-## 📁 Project Structure
-
-Project1/
-│── fashion_rec.ipynb # Main notebook (training + ANN + UI)
-│── app/ # (optional) UI code
-│── models/ # saved models / ann index (optional)
-│── data/ # dataset folder (ignored by git)
-│── requirements.txt # dependencies
-│── README.md # this file
-│── LICENSE # MIT license
+- **Backbone:** ResNet18 fine-tuned via FastAI on the fashion catalogue; **96.5% subcategory classification accuracy**
+- **Embeddings:** 512-dimensional vectors extracted via a penultimate-layer forward hook (same layer used to build the index, guaranteeing consistency)
+- **Index:** Annoy (Approximate Nearest Neighbours Oh Yeah) with Euclidean distance; sub-second retrieval
+- **Category centroid caching:** Text search precomputes per-category mean embeddings at startup rather than per-request, reducing latency
+- **Interface:** Gradio 4-tab UI deployed on Hugging Face Spaces
 
 ---
 
-## 📥 Dataset
+## Retrieval Evaluation
 
-We use the **Fashion Product Images (Small)** dataset:
+Evaluated across all 4,965 items using subCategory as ground truth:
 
-📌 Kaggle:  
-https://www.kaggle.com/datasets/paramaggarwal/fashion-product-images-small
+| Metric | Score |
+|---|---|
+| Precision@6 | **0.91** |
+| NDCG@6 | **0.91** |
+| MRR | **0.95** |
 
-Dataset structure after extraction:
-
-fashion_data/images/<id>.jpg
-fashion_data/styles.csv
+26 out of 27 categories scored above 0.82. The single outlier (Free Gifts) scores lower due to visual heterogeneity — items in that category have no consistent visual signature.
 
 ---
 
-## 🧠 Model & Embeddings
+## Stress Test
 
-- **Model:** ResNet18 (FastAI)  
-- **Embedding Dimension:** 512  
-- **ANN Index:** Annoy (Euclidean distance)  
-- **Trees:** 10  
+All four search modes were stress-tested across quality, edge case, and load tiers:
 
-Embedding extraction example:
+**81 / 81 tests passed — 0% error rate**
 
-```python
-penultimate = learn.model[1][-2]
-hook = FeatureHook(penultimate)
-Saved vector index:
+Key edge cases validated: boundary indices (0, max), empty inputs, invalid IDs, single-item vibe blend, non-existent category text, oversized n values, concurrent load.
 
-fashion_annoy.ann
-🖥️ How to Run (Local or Colab)
-🔹 1. Clone the Repository
-git clone https://github.com/Harru95/Project1
-cd Project1
-🔹 2. Install Dependencies
+---
+
+## Repo Structure
+
+```
+├── fashion-retrieval.ipynb   # Full training pipeline: data prep, fine-tuning, embedding extraction, indexing
+├── app.py                    # Gradio app (all four search modes)
+├── requirements.txt          # Dependencies
+├── emb_demo.npy              # 512-dim embeddings for ~5k items
+├── df_demo.pkl               # Item metadata (paths, subcategory labels)
+├── ann_demo.ann              # Annoy index
+└── README.md
+```
+
+> **Note:** `fashion_resnet18.pkl` (the fine-tuned model, ~46MB) is hosted on the Hugging Face Space and not committed here to keep the repo lightweight.
+
+---
+
+## Setup
+
+```bash
+git clone https://github.com/Harru95/Fashion-Image-Retrieval-CNN-Embeddings-ANN-Search.git
+cd Fashion-Image-Retrieval-CNN-Embeddings-ANN-Search
 pip install -r requirements.txt
-🔹 3. Run the Notebook
-Open fashion_rec.ipynb in:
+```
 
-Google Colab
+Download `fashion_resnet18.pkl` from the [HF Space files](https://huggingface.co/spaces/Harsh9590/fashion-visual-search/tree/main) and place it in the root directory, then:
 
-Jupyter Notebook
+```bash
+python app.py
+```
 
-VS Code Notebook
+---
 
-Execute all cells.
+## Tech Stack
 
-🔹 4. Launch the Gradio App
-python
-demo.launch()
-You will get a link such as:
-Running on public URL: https://xxxx.gradio.live
-🧪 Sample Inputs for Testing
-Index Search
-Index: 50
-Recommendations: 5
-Text Search
-shoes
-tshirts
-bags
-Vibe Match (Indices)
-10, 25, 87
-Vibe Match (Text)
-shoes, blue, backpack
-formal shirt, watch
-Image Upload
-Upload any fashion image (shirt, shoe, watch, etc).
+`Python` · `PyTorch` · `FastAI` · `ResNet18` · `Annoy` · `NumPy` · `Pandas` · `Gradio` · `Hugging Face Spaces` · `Docker`
 
-📝 License
-This project is released under the MIT License.
-You are free to use, modify, and distribute it.
+---
 
-🙌 Author
-Harsh Soni
+## Key Engineering Decisions
 
-GitHub: https://github.com/Harru95
+**Why penultimate-layer embeddings?** The final classification layer collapses 512 dimensions to class logits, losing visual detail. The penultimate layer retains the full embedding and generalises better to unseen items and uploaded images.
 
-LinkedIn: https://linkedin.com/in/harsh-soni-7819522a41
+**Why Annoy over exact search?** With 5k items, exact search is fast enough, but Annoy keeps retrieval sub-second even as the catalogue scales. The index is built once and loaded at startup.
 
-⭐ Support
-If you found this project helpful, please consider giving it a ⭐ on GitHub!
+**Why category-aware filtering in Similar by Index?** Raw ANN results occasionally surface cross-category neighbours (e.g. returning bags for a shoe query). Filtering to same-category neighbours first, then falling back to raw ANN if none exist, improves relevance without hurting recall.
